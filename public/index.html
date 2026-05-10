@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Direct Video Downloader</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="badge">Node.js Backend Downloader</div>
+      <h1>Direct Video <span>Downloader</span></h1>
+      <p>
+        Paste a direct video file URL like .mp4, .webm, .mov, .mkv, .avi, .ogg, or .m4v.
+        The backend fetches the video and sends it to your browser as a download.
+      </p>
+    </section>
+
+    <section class="tool-card">
+      <div class="input-box">
+        <input id="videoUrl" type="url" placeholder="Paste direct video URL..." />
+        <button id="checkBtn">Check</button>
+      </div>
+
+      <div id="message" class="message hidden"></div>
+
+      <div id="resultBox" class="result hidden">
+        <div class="preview">
+          <iframe id="youtubePreview" class="hidden" allowfullscreen></iframe>
+          <video id="videoPreview" class="hidden" controls></video>
+        </div>
+
+        <div class="details">
+          <h2 id="fileName">Video File</h2>
+          <p id="fileInfo">File information will appear here.</p>
+
+          <div class="actions">
+            <button id="downloadBtn" class="download">Download Video</button>
+            <button id="openBtn" class="secondary">Open Link</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="note">
+      <strong>Supported:</strong> direct video file links.<br />
+      <strong>Not supported:</strong> YouTube bypass downloading.
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
