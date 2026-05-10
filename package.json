@@ -1,14 +1,23 @@
 {
-  "name": "direct-video-downloader",
+  "name": "youtube-downloader-node-web",
   "version": "1.0.0",
-  "description": "Frontend and Node.js backend for downloading direct video files",
+  "description": "Node.js backend with HTML/CSS/JS frontend for resolving and downloading videos with yt-dlp.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "NODE_ENV=development node server.js"
   },
+  "keywords": [
+    "node",
+    "express",
+    "yt-dlp",
+    "video-downloader",
+    "frontend"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "express": "^4.18.3",
+    "express": "^4.19.2",
     "cors": "^2.8.5"
   }
 }
