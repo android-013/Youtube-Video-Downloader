@@ -1,0 +1,14 @@
+{
+  "name": "direct-video-downloader",
+  "version": "1.0.0",
+  "description": "Frontend and Node.js backend for downloading direct video files",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.3",
+    "cors": "^2.8.5"
+  }
+}
