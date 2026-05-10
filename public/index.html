@@ -1,53 +1,132 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Direct Video Downloader</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>YouTube Downloader Node</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
-    <section class="hero">
-      <div class="badge">Node.js Backend Downloader</div>
-      <h1>Direct Video <span>Downloader</span></h1>
-      <p>
-        Paste a direct video file URL like .mp4, .webm, .mov, .mkv, .avi, .ogg, or .m4v.
-        The backend fetches the video and sends it to your browser as a download.
-      </p>
-    </section>
-
-    <section class="tool-card">
-      <div class="input-box">
-        <input id="videoUrl" type="url" placeholder="Paste direct video URL..." />
-        <button id="checkBtn">Check</button>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="window-brand">
+        <span class="brand-icon">▶</span>
+        <span>YouTubeDownloader</span>
+        <span class="version">Node Web</span>
       </div>
+      <div class="window-dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </header>
 
-      <div id="message" class="message hidden"></div>
-
-      <div id="resultBox" class="result hidden">
-        <div class="preview">
-          <iframe id="youtubePreview" class="hidden" allowfullscreen></iframe>
-          <video id="videoPreview" class="hidden" controls></video>
+    <section class="query-panel">
+      <form id="queryForm" class="query-form">
+        <div class="input-wrap">
+          <span class="search-icon">⌕</span>
+          <textarea id="queryInput" rows="1" placeholder="Paste video, playlist/channel URL, or type search keywords"></textarea>
+          <button id="processBtn" class="icon-btn submit-btn" title="Process query" type="submit">➜</button>
         </div>
+        <button id="authBtn" class="toolbar-btn muted" title="Auth / cookies" type="button">♟</button>
+        <button id="settingsBtn" class="toolbar-btn" title="Settings" type="button">⚙</button>
+      </form>
+      <div id="topProgress" class="top-progress"><span></span></div>
+    </section>
 
-        <div class="details">
-          <h2 id="fileName">Video File</h2>
-          <p id="fileInfo">File information will appear here.</p>
+    <main class="content">
+      <section id="emptyState" class="empty-state">
+        <div class="youtube-mark">▶</div>
+        <h1>Paste a link or search YouTube</h1>
+        <p>Resolve videos, playlists, channels, or search results. Choose format and quality, then monitor live download progress.</p>
+      </section>
 
-          <div class="actions">
-            <button id="downloadBtn" class="download">Download Video</button>
-            <button id="openBtn" class="secondary">Open Link</button>
-          </div>
+      <section id="downloadList" class="download-list hidden">
+        <div class="list-header">
+          <span></span>
+          <span>File</span>
+          <span>Status</span>
+          <span>Actions</span>
+        </div>
+        <div id="downloadRows" class="download-rows"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalLayer" class="modal-layer hidden" aria-hidden="true">
+    <div id="modalCard" class="modal-card" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <template id="singleModalTemplate">
+    <button class="modal-x" data-close="1">×</button>
+    <div class="modal-info">
+      <h2 data-title></h2>
+      <div class="meta-line">
+        <span>👤 <span data-author></span></span>
+        <span>◷ <span data-duration></span></span>
+      </div>
+    </div>
+    <div class="hero-thumb"><img data-thumbnail alt="Video thumbnail" /></div>
+    <div class="modal-footer split-footer">
+      <label class="field-label">
+        <span>Format</span>
+        <select data-format></select>
+      </label>
+      <div class="button-row">
+        <button class="outline-btn primary" data-download>Download</button>
+        <button class="outline-btn" data-close="1">Cancel</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="multipleModalTemplate">
+    <button class="modal-x" data-close="1">×</button>
+    <div class="modal-info compact">
+      <h2 data-title></h2>
+      <p data-count></p>
+    </div>
+    <div class="video-picker" data-videos></div>
+    <div class="modal-footer multi-footer">
+      <label class="field-label">
+        <span>Container</span>
+        <select data-container></select>
+      </label>
+      <label class="field-label">
+        <span>Video quality</span>
+        <select data-quality></select>
+      </label>
+      <div class="button-row">
+        <button class="outline-btn primary" data-download>Download selected</button>
+        <button class="outline-btn" data-close="1">Cancel</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="settingsModalTemplate">
+    <button class="modal-x" data-close="1">×</button>
+    <div class="settings-panel">
+      <h2>Settings & server status</h2>
+      <div id="healthBox" class="health-box loading">Checking backend...</div>
+      <div class="settings-grid">
+        <div class="setting-card">
+          <strong>Downloads</strong>
+          <p>Completed files are stored on the server in the <code>downloads</code> folder and can be saved from the action button.</p>
+        </div>
+        <div class="setting-card">
+          <strong>Private videos / age-restricted videos</strong>
+          <p>Set <code>YTDLP_COOKIES_FILE</code> or <code>YTDLP_COOKIES_FROM_BROWSER</code> before starting the server.</p>
+        </div>
+        <div class="setting-card full">
+          <strong>Usage note</strong>
+          <p>Only download videos you own, public-domain material, or content you are allowed to download.</p>
         </div>
       </div>
-    </section>
-
-    <section class="note">
-      <strong>Supported:</strong> direct video file links.<br />
-      <strong>Not supported:</strong> YouTube bypass downloading.
-    </section>
-  </main>
+      <div class="button-row right">
+        <button class="outline-btn primary" id="refreshHealthBtn">Refresh</button>
+        <button class="outline-btn" data-close="1">Close</button>
+      </div>
+    </div>
+  </template>
 
   <script src="app.js"></script>
 </body>
