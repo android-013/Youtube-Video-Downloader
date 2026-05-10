@@ -4,45 +4,92 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>YouTube Downloader Node</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="background-orbs" aria-hidden="true">
+    <span class="orb orb-one"></span>
+    <span class="orb orb-two"></span>
+    <span class="orb orb-three"></span>
+    <span class="grid-glow"></span>
+  </div>
+
   <div class="app-shell">
     <header class="topbar">
       <div class="window-brand">
-        <span class="brand-icon">▶</span>
-        <span>YouTubeDownloader</span>
-        <span class="version">Node Web</span>
+        <span class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M9 7.5v9l8-4.5-8-4.5Z" fill="currentColor"/></svg>
+        </span>
+        <div>
+          <strong>YouTubeDownloader</strong>
+          <span>Node Web</span>
+        </div>
       </div>
-      <div class="window-dots" aria-hidden="true">
-        <span></span><span></span><span></span>
+
+      <div class="window-tools">
+        <span class="status-pill"><span class="pulse-dot"></span><span id="serverMiniStatus">Checking</span></span>
+        <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
     </header>
 
-    <section class="query-panel">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Modern downloader dashboard</span>
+        <h1>Paste, preview, queue, and track downloads.</h1>
+        <p>Resolve single videos, playlists, channels, and search keywords with a cleaner animated dark interface.</p>
+      </div>
+
       <form id="queryForm" class="query-form">
         <div class="input-wrap">
-          <span class="search-icon">⌕</span>
-          <textarea id="queryInput" rows="1" placeholder="Paste video, playlist/channel URL, or type search keywords"></textarea>
-          <button id="processBtn" class="icon-btn submit-btn" title="Process query" type="submit">➜</button>
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M10.8 18.1a7.3 7.3 0 1 1 5.16-12.46A7.3 7.3 0 0 1 10.8 18.1Zm0-2.05a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5Zm6.34.25 4 4-1.45 1.45-4-4 1.45-1.45Z" fill="currentColor"/></svg>
+          </span>
+          <textarea id="queryInput" rows="1" placeholder="Paste a video/playlist URL or type search keywords..."></textarea>
+          <button id="processBtn" class="submit-btn" title="Process query" type="submit">
+            <span>Start</span>
+            <svg viewBox="0 0 24 24"><path d="M13.55 5.5 20 12l-6.45 6.5-1.42-1.42 4.05-4.08H4v-2h12.18l-4.05-4.08 1.42-1.42Z" fill="currentColor"/></svg>
+          </button>
         </div>
-        <button id="authBtn" class="toolbar-btn muted" title="Auth / cookies" type="button">♟</button>
-        <button id="settingsBtn" class="toolbar-btn" title="Settings" type="button">⚙</button>
+
+        <div class="quick-actions">
+          <button id="authBtn" class="toolbar-btn muted" title="Auth / cookies" type="button">
+            <svg viewBox="0 0 24 24"><path d="M17 10h-1V8a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Zm-7 0V8a2 2 0 1 1 4 0v2h-4Zm3 6.73V18h-2v-1.27A2 2 0 1 1 13 16.73Z" fill="currentColor"/></svg>
+            <span>Cookies</span>
+          </button>
+          <button id="settingsBtn" class="toolbar-btn" title="Settings" type="button">
+            <svg viewBox="0 0 24 24"><path d="m19.43 12.98.04-.98-.04-.98 2.1-1.64-2-3.46-2.47 1a7.58 7.58 0 0 0-1.7-.98L15 3.3h-4l-.37 2.64a7.58 7.58 0 0 0-1.7.98l-2.47-1-2 3.46 2.1 1.64-.04.98.04.98-2.1 1.64 2 3.46 2.47-1c.52.4 1.09.73 1.7.98L11 20.7h4l.37-2.64c.61-.25 1.18-.58 1.7-.98l2.47 1 2-3.46-2.1-1.64ZM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" fill="currentColor"/></svg>
+            <span>Settings</span>
+          </button>
+        </div>
       </form>
+
       <div id="topProgress" class="top-progress"><span></span></div>
     </section>
 
     <main class="content">
+      <section class="stats-row" aria-label="Download statistics">
+        <article class="stat-card"><span>Total</span><strong id="statTotal">0</strong></article>
+        <article class="stat-card"><span>Active</span><strong id="statActive">0</strong></article>
+        <article class="stat-card"><span>Done</span><strong id="statDone">0</strong></article>
+        <article class="stat-card danger"><span>Failed</span><strong id="statFailed">0</strong></article>
+      </section>
+
       <section id="emptyState" class="empty-state">
-        <div class="youtube-mark">▶</div>
-        <h1>Paste a link or search YouTube</h1>
-        <p>Resolve videos, playlists, channels, or search results. Choose format and quality, then monitor live download progress.</p>
+        <div class="empty-visual">
+          <span class="play-ring"></span>
+          <svg viewBox="0 0 96 96"><path d="M38 28v40l34-20-34-20Z" fill="currentColor"/></svg>
+        </div>
+        <h2>No downloads yet</h2>
+        <p>Paste a YouTube URL or type search keywords above. Choose format and quality, then watch each job update live.</p>
+        <div class="empty-chips" aria-hidden="true"><span>MP4</span><span>WEBM</span><span>MP3</span><span>Playlist</span></div>
       </section>
 
       <section id="downloadList" class="download-list hidden">
         <div class="list-header">
-          <span></span>
-          <span>File</span>
+          <span>Media</span>
           <span>Status</span>
           <span>Actions</span>
         </div>
@@ -58,30 +105,32 @@
   <div id="toast" class="toast hidden"></div>
 
   <template id="singleModalTemplate">
-    <button class="modal-x" data-close="1">×</button>
-    <div class="modal-info">
-      <h2 data-title></h2>
-      <div class="meta-line">
-        <span>👤 <span data-author></span></span>
-        <span>◷ <span data-duration></span></span>
-      </div>
-    </div>
-    <div class="hero-thumb"><img data-thumbnail alt="Video thumbnail" /></div>
-    <div class="modal-footer split-footer">
-      <label class="field-label">
-        <span>Format</span>
-        <select data-format></select>
-      </label>
-      <div class="button-row">
-        <button class="outline-btn primary" data-download>Download</button>
-        <button class="outline-btn" data-close="1">Cancel</button>
+    <button class="modal-x" data-close="1" aria-label="Close">×</button>
+    <div class="single-modal-grid">
+      <div class="hero-thumb"><img data-thumbnail alt="Video thumbnail" /></div>
+      <div class="modal-info">
+        <span class="modal-kicker">Single video</span>
+        <h2 data-title></h2>
+        <div class="meta-line">
+          <span>👤 <span data-author></span></span>
+          <span>⏱ <span data-duration></span></span>
+        </div>
+        <label class="field-label">
+          <span>Download format</span>
+          <select data-format></select>
+        </label>
+        <div class="button-row">
+          <button class="outline-btn primary" data-download>Download now</button>
+          <button class="outline-btn" data-close="1">Cancel</button>
+        </div>
       </div>
     </div>
   </template>
 
   <template id="multipleModalTemplate">
-    <button class="modal-x" data-close="1">×</button>
+    <button class="modal-x" data-close="1" aria-label="Close">×</button>
     <div class="modal-info compact">
+      <span class="modal-kicker">Batch download</span>
       <h2 data-title></h2>
       <p data-count></p>
     </div>
@@ -103,8 +152,9 @@
   </template>
 
   <template id="settingsModalTemplate">
-    <button class="modal-x" data-close="1">×</button>
+    <button class="modal-x" data-close="1" aria-label="Close">×</button>
     <div class="settings-panel">
+      <span class="modal-kicker">System</span>
       <h2>Settings & server status</h2>
       <div id="healthBox" class="health-box loading">Checking backend...</div>
       <div class="settings-grid">
@@ -113,7 +163,7 @@
           <p>Completed files are stored on the server in the <code>downloads</code> folder and can be saved from the action button.</p>
         </div>
         <div class="setting-card">
-          <strong>Private videos / age-restricted videos</strong>
+          <strong>Private / restricted videos</strong>
           <p>Set <code>YTDLP_COOKIES_FILE</code> or <code>YTDLP_COOKIES_FROM_BROWSER</code> before starting the server.</p>
         </div>
         <div class="setting-card full">

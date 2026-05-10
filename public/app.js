@@ -20,7 +20,13 @@ const els = {
   downloadRows: $('#downloadRows'),
   modalLayer: $('#modalLayer'),
   modalCard: $('#modalCard'),
-  toast: $('#toast')
+  toast: $('#toast'),
+  statTotal: $('#statTotal'),
+  statActive: $('#statActive'),
+  statDone: $('#statDone'),
+  statFailed: $('#statFailed'),
+  serverMiniStatus: $('#serverMiniStatus'),
+  statusPill: $('.status-pill')
 };
 
 function setBusy(value) {
@@ -123,8 +129,32 @@ function addOrUpdateJob(job) {
   renderJobs();
 }
 
+function renderStats(jobs) {
+  const total = jobs.length;
+  const active = jobs.filter(job => ['queued', 'started'].includes(job.status)).length;
+  const done = jobs.filter(job => job.status === 'completed').length;
+  const failed = jobs.filter(job => job.status === 'failed').length;
+  if (els.statTotal) els.statTotal.textContent = total;
+  if (els.statActive) els.statActive.textContent = active;
+  if (els.statDone) els.statDone.textContent = done;
+  if (els.statFailed) els.statFailed.textContent = failed;
+}
+
+function updateMiniStatus(health) {
+  if (!els.serverMiniStatus || !els.statusPill) return;
+  els.statusPill.classList.remove('ok', 'bad');
+  if (!health) {
+    els.serverMiniStatus.textContent = 'Offline';
+    els.statusPill.classList.add('bad');
+    return;
+  }
+  els.serverMiniStatus.textContent = health.ok ? 'Ready' : 'Setup needed';
+  els.statusPill.classList.add(health.ok ? 'ok' : 'bad');
+}
+
 function renderJobs() {
   const jobs = [...state.jobs.values()].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  renderStats(jobs);
   els.emptyState.classList.toggle('hidden', jobs.length > 0);
   els.downloadList.classList.toggle('hidden', jobs.length === 0);
 
@@ -140,8 +170,8 @@ function renderJobs() {
         <span class="status-text ${statusClass(job)} ${job.status === 'failed' ? 'clickable' : ''}" ${job.status === 'failed' ? 'data-action="details"' : ''} title="${escapeHtml(job.error || job.message || '')}">${escapeHtml(statusText(job))}</span>
       </div>
       <div class="action-row">
-        <button class="row-btn" data-action="file" title="Download completed file" ${job.hasFile ? '' : 'disabled'}>⌕</button>
-        <button class="row-btn" data-action="open" title="Open completed file" ${job.hasFile ? '' : 'disabled'}>▶</button>
+        <button class="row-btn" data-action="file" title="Download completed file" ${job.hasFile ? '' : 'disabled'}>⇩</button>
+        <button class="row-btn" data-action="open" title="Open completed file" ${job.hasFile ? '' : 'disabled'}>↗</button>
         ${['queued', 'started'].includes(job.status)
           ? '<button class="row-btn" data-action="cancel" title="Cancel download">✕</button>'
           : '<button class="row-btn" data-action="restart" title="Restart download">↻</button>'}
@@ -355,6 +385,7 @@ async function showSettingsModal() {
     box.textContent = 'Checking backend...';
     try {
       const health = await api('/api/health');
+      updateMiniStatus(health);
       const yt = health.ytDlp ? `${health.ytDlp.command} ${health.ytDlp.prefixArgs?.join(' ') || ''}`.trim() : 'Not found';
       box.className = `health-box ${health.ok ? 'ok' : 'bad'}`;
       box.innerHTML = `
@@ -366,6 +397,7 @@ async function showSettingsModal() {
         ${health.note ? `<span>${escapeHtml(health.note)}</span>` : ''}
       `;
     } catch (error) {
+      updateMiniStatus(null);
       box.className = 'health-box bad';
       box.textContent = error.message;
     }
@@ -431,7 +463,7 @@ els.queryForm.addEventListener('submit', event => {
 
 els.settingsBtn.addEventListener('click', showSettingsModal);
 els.authBtn.addEventListener('click', () => {
-  showToast('For auth/private content, set YTDLP_COOKIES_FILE or YTDLP_COOKIES_FROM_BROWSER before starting the server.', 6500);
+  showToast('For private or age-restricted content, set YTDLP_COOKIES_FILE or YTDLP_COOKIES_FROM_BROWSER before starting the server.', 6500);
 });
 
 els.modalLayer.addEventListener('click', event => {
@@ -450,12 +482,14 @@ els.downloadRows.addEventListener('click', event => {
 });
 
 resizeTextarea();
+renderStats([]);
 loadJobs();
 
 api('/api/health')
   .then(health => {
+    updateMiniStatus(health);
     if (!health.ok) {
       showToast('yt-dlp was not found. Open Settings for setup instructions.', 6500);
     }
   })
-  .catch(() => {});
+  .catch(() => updateMiniStatus(null));
