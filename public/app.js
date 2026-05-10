@@ -98,7 +98,7 @@ function qualityLabel(value) {
 
 function statusText(job) {
   if (job.status === 'completed') return '✓ Done';
-  if (job.status === 'failed') return 'Failed';
+  if (job.status === 'failed') return job.error ? 'Failed — details' : 'Failed';
   if (job.status === 'canceled') return 'Canceled';
   if (job.status === 'queued') return 'Queued';
   const parts = [`${Math.round(job.progress || 0)}%`];
@@ -137,7 +137,7 @@ function renderJobs() {
       </div>
       <div class="status-cell">
         <span class="ring" style="--pct:${Math.max(0, Math.min(100, Number(job.progress || 0)))}"></span>
-        <span class="status-text ${statusClass(job)}" title="${escapeHtml(job.error || job.message || '')}">${escapeHtml(statusText(job))}</span>
+        <span class="status-text ${statusClass(job)} ${job.status === 'failed' ? 'clickable' : ''}" ${job.status === 'failed' ? 'data-action="details"' : ''} title="${escapeHtml(job.error || job.message || '')}">${escapeHtml(statusText(job))}</span>
       </div>
       <div class="action-row">
         <button class="row-btn" data-action="file" title="Download completed file" ${job.hasFile ? '' : 'disabled'}>⌕</button>
@@ -151,6 +151,29 @@ function renderJobs() {
   `).join('');
 }
 
+function showJobDetails(job) {
+  const node = document.createElement('div');
+  node.className = 'error-panel';
+  const detail = job.error || job.message || 'No error details were returned.';
+  node.innerHTML = `
+    <button class="modal-x" data-close="1">×</button>
+    <h2>Download failed</h2>
+    <p class="error-title">${escapeHtml(job.title || 'Untitled video')}</p>
+    <pre>${escapeHtml(detail)}</pre>
+    <div class="fix-card">
+      <strong>Common fixes</strong>
+      <p>Update yt-dlp, install FFmpeg, then restart the Node server. For private, age-restricted, or bot-check videos, start with cookies.</p>
+      <code>python -m pip install -U yt-dlp</code>
+      <code>choco install ffmpeg</code>
+      <code>set YTDLP_COOKIES_FROM_BROWSER=chrome && npm start</code>
+    </div>
+    <div class="button-row right">
+      <button class="outline-btn primary" data-close="1">Close</button>
+    </div>
+  `;
+  openModal(node);
+}
+
 function subscribeToJob(jobId) {
   if (state.events.has(jobId)) return;
   const source = new EventSource(`/api/jobs/${jobId}/events`);
@@ -162,7 +185,7 @@ function subscribeToJob(jobId) {
       source.close();
       state.events.delete(job.id);
       if (job.status === 'completed') showToast(`Completed: ${job.title}`);
-      if (job.status === 'failed') showToast(`Failed: ${job.title}`, 5000);
+      if (job.status === 'failed') showToast(job.error || `Failed: ${job.title}`, 7500);
     }
   };
   source.onerror = () => {
@@ -339,7 +362,8 @@ async function showSettingsModal() {
         yt-dlp: ${escapeHtml(yt)} ${health.ytDlp?.version ? `(${escapeHtml(health.ytDlp.version)})` : ''}<br>
         FFmpeg: ${health.ffmpeg ? 'Available' : 'Not detected'}<br>
         Demo mode: ${health.demoMode ? 'On' : 'Off'}<br>
-        Downloads folder: <code>${escapeHtml(health.downloadsDir || 'downloads')}</code>
+        Downloads folder: <code>${escapeHtml(health.downloadsDir || 'downloads')}</code><br>
+        ${health.note ? `<span>${escapeHtml(health.note)}</span>` : ''}
       `;
     } catch (error) {
       box.className = 'health-box bad';
@@ -357,6 +381,10 @@ async function handleRowAction(row, action) {
   if (!job) return;
 
   try {
+    if (action === 'details') {
+      showJobDetails(job);
+      return;
+    }
     if (action === 'file' || action === 'open') {
       if (job.hasFile) window.open(`/api/jobs/${id}/file`, '_blank');
     }
