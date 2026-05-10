@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "demo": "node server.js --demo",
     "dev": "NODE_ENV=development node server.js"
   },
   "keywords": [

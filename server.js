@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const DEMO_MODE = process.env.DEMO_MODE === '1';
+const DEMO_MODE = process.env.DEMO_MODE === '1' || process.argv.includes('--demo');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -26,6 +26,35 @@ function id() {
 
 function safeError(error) {
   return error?.message || String(error || 'Unknown error');
+}
+
+function compactError(text) {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  return value
+    .replace(/\r/g, '')
+    .split('\n')
+    .filter(line => line.trim())
+    .slice(-18)
+    .join('\n')
+    .slice(0, 5000);
+}
+
+function newestFileSince(startedAtIso) {
+  const started = new Date(startedAtIso).getTime() - 3000;
+  try {
+    return fs.readdirSync(DOWNLOADS_DIR)
+      .map(name => {
+        const filePath = path.join(DOWNLOADS_DIR, name);
+        const stat = fs.statSync(filePath);
+        return stat.isFile() ? { filePath, mtime: stat.mtimeMs } : null;
+      })
+      .filter(Boolean)
+      .filter(file => file.mtime >= started)
+      .sort((a, b) => b.mtime - a.mtime)[0]?.filePath || '';
+  } catch {
+    return '';
+  }
 }
 
 function writeEvent(res, payload) {
@@ -297,26 +326,47 @@ function demoResolve(query) {
   };
 }
 
-function downloadArgs(container, quality) {
+function downloadArgs(container, quality, ffmpegAvailable) {
   const q = String(quality || 'highest');
   const c = String(container || 'mp4').toLowerCase();
 
+  // MP3 extraction and true 1080p+ video/audio merging require FFmpeg.
+  // Without FFmpeg, fall back to a progressive single-file video format instead of failing.
   if (c === 'mp3') {
-    return ['-x', '--audio-format', 'mp3', '--audio-quality', '0', '--embed-thumbnail', '--add-metadata'];
+    if (!ffmpegAvailable) {
+      return {
+        error: 'MP3 conversion requires FFmpeg. Install FFmpeg and restart the server, or choose MP4/WebM instead.'
+      };
+    }
+    return { args: ['-x', '--audio-format', 'mp3', '--audio-quality', '0', '--embed-thumbnail', '--add-metadata'] };
+  }
+
+  if (!ffmpegAvailable) {
+    if (c === 'webm') {
+      if (q !== 'highest' && /^\d+$/.test(q)) {
+        return { args: ['-f', `b[height<=${q}][ext=webm]/b[height<=${q}]/best[height<=${q}]`], warning: 'FFmpeg not detected; using best single-file WebM fallback.' };
+      }
+      return { args: ['-f', 'b[ext=webm]/best[ext=webm]/b/best'], warning: 'FFmpeg not detected; using best single-file WebM fallback.' };
+    }
+
+    if (q !== 'highest' && /^\d+$/.test(q)) {
+      return { args: ['-f', `b[height<=${q}][ext=mp4]/b[height<=${q}]/best[height<=${q}]`], warning: 'FFmpeg not detected; using best single-file MP4 fallback.' };
+    }
+    return { args: ['-f', 'b[ext=mp4]/best[ext=mp4]/b/best'], warning: 'FFmpeg not detected; using best single-file MP4 fallback.' };
   }
 
   if (c === 'webm') {
     if (q !== 'highest' && /^\d+$/.test(q)) {
-      return ['-f', `bv*[height<=${q}][ext=webm]+ba[ext=webm]/b[height<=${q}][ext=webm]/best[height<=${q}]`, '--merge-output-format', 'webm'];
+      return { args: ['-f', `bv*[height<=${q}][ext=webm]+ba[ext=webm]/b[height<=${q}][ext=webm]/best[height<=${q}]`, '--merge-output-format', 'webm'] };
     }
-    return ['-f', 'bv*[ext=webm]+ba[ext=webm]/b[ext=webm]/best', '--merge-output-format', 'webm'];
+    return { args: ['-f', 'bv*[ext=webm]+ba[ext=webm]/b[ext=webm]/best', '--merge-output-format', 'webm'] };
   }
 
   if (q !== 'highest' && /^\d+$/.test(q)) {
-    return ['-f', `bv*[height<=${q}][ext=mp4]+ba[ext=m4a]/b[height<=${q}][ext=mp4]/best[height<=${q}]`, '--merge-output-format', 'mp4'];
+    return { args: ['-f', `bv*[height<=${q}][ext=mp4]+ba[ext=m4a]/b[height<=${q}][ext=mp4]/best[height<=${q}]`, '--merge-output-format', 'mp4'] };
   }
 
-  return ['-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best[ext=mp4]/best', '--merge-output-format', 'mp4'];
+  return { args: ['-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best[ext=mp4]/best', '--merge-output-format', 'mp4'] };
 }
 
 function optionalCookieArgs() {
@@ -386,6 +436,16 @@ function startDownload(job) {
     return;
   }
 
+  const ffmpegAvailable = hasFfmpeg();
+  const downloadSpec = downloadArgs(job.container, job.quality, ffmpegAvailable);
+  if (downloadSpec.error) {
+    job.status = 'failed';
+    job.error = downloadSpec.error;
+    job.message = downloadSpec.error;
+    emitJob(job);
+    return;
+  }
+
   const outputTemplate = path.join(DOWNLOADS_DIR, '%(title).180B [%(id)s].%(ext)s');
   const args = [
     ...optionalCookieArgs(),
@@ -398,16 +458,25 @@ function startDownload(job) {
     'after_move:filepath',
     '-o',
     outputTemplate,
-    ...downloadArgs(job.container, job.quality),
+    ...downloadSpec.args,
     job.url
   ];
 
   job.status = 'started';
-  job.message = 'Starting yt-dlp';
+  job.message = downloadSpec.warning || 'Starting yt-dlp';
   emitJob(job);
 
   let stderr = '';
-  const child = runYtDlp(args);
+  let child;
+  try {
+    child = runYtDlp(args);
+  } catch (error) {
+    job.status = 'failed';
+    job.error = safeError(error);
+    job.message = 'Failed to start yt-dlp';
+    emitJob(job);
+    return;
+  }
   job.child = child;
 
   child.stdout.on('data', chunk => {
@@ -441,12 +510,15 @@ function startDownload(job) {
       return;
     }
     if (code === 0) {
+      if (!job.filePath || !fs.existsSync(job.filePath)) {
+        job.filePath = newestFileSince(job.createdAt);
+      }
       job.status = 'completed';
       job.progress = 100;
       job.message = 'Completed';
     } else {
       job.status = 'failed';
-      job.error = stderr.trim() || `yt-dlp exited with code ${code}`;
+      job.error = compactError(stderr) || `yt-dlp exited with code ${code}`;
       job.message = 'Download failed';
     }
     emitJob(job);
@@ -455,6 +527,7 @@ function startDownload(job) {
 
 app.get('/api/health', (req, res) => {
   const binary = getYtDlp();
+  const ffmpeg = hasFfmpeg();
   res.json({
     ok: Boolean(binary),
     demoMode: DEMO_MODE,
@@ -463,7 +536,10 @@ app.get('/api/health', (req, res) => {
       prefixArgs: binary.prefixArgs,
       version: binary.version
     } : null,
-    ffmpeg: hasFfmpeg(),
+    ffmpeg,
+    note: !ffmpeg
+      ? 'FFmpeg is not detected. MP4/WebM will use a single-file fallback. MP3 and high-quality merged video require FFmpeg.'
+      : 'FFmpeg detected. MP3 conversion and high-quality video merging are available.',
     downloadsDir: DOWNLOADS_DIR
   });
 });
